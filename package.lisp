@@ -223,4 +223,8 @@
    #:sf_write_sync))
 
 (defpackage #:sndfile
-  (:use #:cl))
+  (:use #:cl :sndfile-cffi)
+  (:nicknames #:sf)
+  (:shadow #:open)
+  (:export
+   #:open))

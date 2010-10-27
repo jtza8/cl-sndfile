@@ -165,7 +165,16 @@
    #:SF_COUNT_MAX
    ; Structs
    #:SF_INFO
+   #:frames
+   #:samplerate
+   #:channels
+   #:format
+   #:sections
+   #:seekable
    #:SF_FORMAT_INFO
+   #:format
+   #:name
+   #:extension
    ; Misc Enum
    #:SFD_DEFAULT_LEVEL
    #:SFD_CUSTOM_LEVEL 
@@ -174,7 +183,12 @@
    #:SFD_TRIANGULAR_PDF
    ; Structs
    #:SF_DITHER_INFO
+   #:type
+   #:level
+   #:name
    #:SF_EMBED_FILE_INFO
+   #:offset
+   #:length
    ; Loop Enum
    #:SF_LOOP_NONE
    #:SF_LOOP_FORWARD
@@ -182,10 +196,47 @@
    #:SF_LOOP_ALTERNATING
    ; Structs
    #:SF_INSTRUMENTS
+   #:gain
+   #:basenote
+   #:detune
+   #:velocity_lo
+   #:velocity_hi
+   #:key_lo
+   #:key_hi
+   #:loop_count
+   #:loops
    #:SF_INSTRUMENTS_loops
+   #:mode
+   #:start
+   #:end
+   #:count
    #:SF_LOOP_INFO
+   #:time_sig_num
+   #:time_sig_den
+   #:loop_mode
+   #:num_beats
+   #:bpm
+   #:root_key
+   #:future
    #:SF_BROADCAST_INFO
+   #:description
+   #:originator
+   #:originator_reference
+   #:origination_date
+   #:origination_time
+   #:time_reference_low
+   #:time_reference_high
+   #:version
+   #:umid
+   #:reserved
+   #:coding_history_size
+   #:coding_history
    #:SF_VIRTUAL_IO
+   #:get_filelen
+   #:seek
+   #:read
+   #:write
+   #:tell
    ; Functions
    #:sf_open
    #:sf_open_fd
@@ -223,7 +274,7 @@
    #:sf_write_sync))
 
 (defpackage #:sndfile
-  (:use #:cl :sndfile-cffi)
+  (:use #:cl #:sndfile-cffi #:cffi)
   (:nicknames #:sf)
   (:shadow #:open)
   (:export

@@ -276,6 +276,6 @@
 (defpackage #:sndfile
   (:use #:cl #:sndfile-cffi #:cffi)
   (:nicknames #:sf)
-  (:shadow #:open)
+  (:shadow #:open #:close)
   (:export
    #:open))

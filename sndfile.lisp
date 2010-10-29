@@ -54,8 +54,8 @@
 (defun format-to-labels (format)
   (let ((major (dpb (ldb (byte 8 16) format) (byte 8 16) 0))
 	(minor (ldb (byte 8 0) format)))
-    (macrolet ((format-to-label (format flags)
-		 `(or (car (rassoc ,format ,flags)) :undefined)))
+    (flet ((format-to-label (format flags)
+	     (or (car (rassoc format flags)) :undefined)))
       (cons (format-to-label major *major-format-flags*)
 	    (format-to-label minor *minor-format-flags*)))))
 
@@ -65,30 +65,3 @@
 	       (error "invalid labels"))))
     (logior (label-to-format (car labels) *major-format-flags*)
 	    (label-to-format (cdr labels) *minor-format-flags*))))
-
-(defstruct info
-  (frames nil)
-  (sample-rate 0 :type integer)
-  (channels 0 :type integer)
-  (format :undefined)
-  (sections 0 :type integer)
-  (seekable nil :type boolean))
-
-(defun c-info-to-lisp-info (c-info)
-  (with-foreign-slots ((frames samplerate channels 
-			format sections seekable)
-		       c-info sf_info)
-    (make-info :frames frames :sample-rate samplerate :channels channels
-	       :format (format-to-labels format)
-	       :sections sections :seekable seekable)))
-
-(defun open (file-name mode &optional (info nil))
-  (declare (ignore info))
-  (let ((mode (ecase mode
-		(:read SFM_READ)
-		(:write SFM_WRITE)
-		(:read-write SFM_RDWR)))
-	(file-name (namestring file-name)))
-    (with-foreign-object (info 'sf_info)
-      (values (sf_open file-name mode info)
-	      (c-info-to-lisp-info info)))))

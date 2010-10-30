@@ -5,7 +5,7 @@
 
 (def-test-method test-open ((test test-sound-file))
   (with-open-sound-file (file (merge-pathnames "test.wav" *test-sounds-path*)
-			 :read)
+                         :read)
     (assert-equal 44100 (frames file))
     (assert-equal 44100 (sample-rate file))
     (assert-equal 1 (channels file))

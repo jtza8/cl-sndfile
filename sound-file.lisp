@@ -1,5 +1,10 @@
 (in-package #:sndfile)
 
+(define-condition sound-file-error (error)
+  ((message :initarg :message
+            :initform ""
+            :reader message)))
+
 (defclass sound-file ()
   ((frames :initform 0
            :initarg :frames
@@ -20,14 +25,22 @@
              :initarg :sections
              :reader sections)
    (file :initform nil
-         :initarg :file)))
+         :initarg :file)
+   (read-buffer :initform nil
+                :reader read-buffer)
+   (read-buffer-count :initarg :read-buffer-size
+                      :initform 1024
+                      :reader read-buffer-count)
+   (write-buffer :initform nil
+                 :reader write-buffer)
+   (write-buffer-count :initform 1024
+                       :reader write-buffer-count)))
 
 (defmacro with-open-sound-file ((variable-name file-name mode &rest key-args)
                                 &body body)
-  `(let (,variable-name)
-     (unwind-protect (setf ,variable-name (open ,file-name ,mode ,@key-args))
-       ,@body)
-     (close ,variable-name)))
+  `(let ((,variable-name (open ,file-name ,mode ,@key-args)))
+     (unwind-protect (progn ,@body)
+     (close ,variable-name))))
 
 (defun open (file-name mode &key
              (frames 0) (sample-rate 0) (channels 0)
@@ -48,6 +61,9 @@
                 (i 'format) (labels-to-format file-format)
                 (i 'seekable) seekable))
         (let ((file (sf_open file-name c-mode info)))
+          (when (or (null-pointer-p file)
+                    (not (= (sf_error file) SF_ERR_NO_ERROR)))
+            (error 'sound-file-error :message (sf_strerror file)))
           (when (or (eql mode :read) (eql mode :read-write))
             (setf frames (i 'frames)
                   sample-rate (i 'samplerate)
@@ -62,3 +78,10 @@
 
 (defmethod close ((sound-file sound-file))
   (sf_close (slot-value sound-file 'file)))
+
+;; (defmethod read-frames ((sound-file sound-file) &optional (count 1024))
+;;   (with-slots (read-buffer read-buffer-count) sound-file
+;;     (setf read-buffer-count count)
+;;     (unless (or (null read-buffer) (null-pointer-p read-buffer))
+;;       (foreign-free read-buffer))
+;;     (setf read-buffer (foreign-alloc :int))

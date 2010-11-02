@@ -7,5 +7,6 @@
   :components ((:file "package")
                (:file "sndfile-cffi" :depends-on ("package"))
                (:file "utils" :depends-on ("package" "sndfile-cffi"))
+               (:file "cache" :depends-on ("package"))
                (:file "sound-file"
-                :depends-on ("package" "utils" "sndfile-cffi"))))
+                :depends-on ("package" "utils" "cache" "sndfile-cffi"))))

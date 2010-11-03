@@ -22,7 +22,7 @@
 (def-test-method test-read-frame ((test sound-file-test))
   (with-open-sound-file (file (merge-pathnames "test.wav" *test-sounds-path*)
                          :read)
-    (with-slots (read-buffer) file
-      (assert-true (null read-buffer) "non-nil read-buffer")
-      (assert-equal 1024 (read-frames file 1024))
-      (assert-false (null-pointer-p read-buffer) "unexpected null-pointer"))))
+    (with-slots (read-cache) file
+      (assert-true (null read-cache) "non-nil read-cache")
+      (assert-equal (read-frame file) -0.096954345703125d0)
+      (assert-equal (read-frame file) 0.069427490234375d0))))

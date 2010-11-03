@@ -26,21 +26,19 @@
              :reader sections)
    (file :initform nil
          :initarg :file)
-   (read-buffer :initform nil
-                :reader read-buffer)
-   (read-buffer-count :initarg :read-buffer-size
-                      :initform 1024
-                      :reader read-buffer-count)
-   (write-buffer :initform nil
-                 :reader write-buffer)
-   (write-buffer-count :initform 1024
-                       :reader write-buffer-count)))
+   (read-cache :initform nil
+               :reader read-cache)
+   (read-cache-size :initarg :read-cache-size
+                     :initform 1024
+                     :reader read-cache-size)
+   (write-cache :initform nil
+                 :reader write-cache)
+   (write-cache-count :initform 1024
+                       :reader write-cache-count)))
 
-(defmacro with-open-sound-file ((variable-name file-name mode &rest key-args)
-                                &body body)
-  `(let ((,variable-name (open ,file-name ,mode ,@key-args)))
-     (unwind-protect (progn ,@body)
-     (close ,variable-name))))
+(defun assert-no-error (file)
+  (assert (= (sf_error file) SF_ERR_NO_ERROR) ()
+                'sound-file-error :message (sf_strerror file)))
 
 (defun open (file-name mode &key
              (frames 0) (sample-rate 0) (channels 0)
@@ -61,9 +59,7 @@
                 (i 'format) (labels-to-format file-format)
                 (i 'seekable) seekable))
         (let ((file (sf_open file-name c-mode info)))
-          (when (or (null-pointer-p file)
-                    (not (= (sf_error file) SF_ERR_NO_ERROR)))
-            (error 'sound-file-error :message (sf_strerror file)))
+          (assert-no-error file)
           (when (or (eql mode :read) (eql mode :read-write))
             (setf frames (i 'frames)
                   sample-rate (i 'samplerate)
@@ -77,11 +73,37 @@
                          :sections sections :seekable seekable))))))
 
 (defmethod close ((sound-file sound-file))
-  (sf_close (slot-value sound-file 'file)))
+  (macrolet ((clear-cache (cache)
+               `(unless (null ,cache)
+                  (free ,cache)
+                  (setf ,cache nil))))
+    (with-slots (file read-cache write-cache) sound-file
+      (clear-cache read-cache)
+      (clear-cache write-cache)
+      (sf_close (slot-value sound-file 'file)))))
 
-;; (defmethod read-frames ((sound-file sound-file) &optional (count 1024))
-;;   (with-slots (read-buffer read-buffer-count) sound-file
-;;     (setf read-buffer-count count)
-;;     (unless (or (null read-buffer) (null-pointer-p read-buffer))
-;;       (foreign-free read-buffer))
-;;     (setf read-buffer (foreign-alloc :int))
+(defmethod update-read-cache ((sound-file sound-file))
+  (with-slots (file read-cache read-cache-size channels) sound-file
+    (when (or (null read-cache)
+              (end-of-cache-p read-cache))
+      (unless (null read-cache)
+        (free read-cache))
+      (setf read-cache
+            (make-instance 'cache 
+                           :item-type :double
+                           :total-items (* read-cache-size channels)))
+      (let ((frame-count (sf_readf_double file 
+                                          (start-address read-cache)
+                                          read-cache-size)))
+        (assert-no-error file)
+        frame-count))))
+
+(defmethod read-frame ((sound-file sound-file))
+  (update-read-cache sound-file)
+  (read-iterator (slot-value sound-file 'read-cache)))
+
+(defmacro with-open-sound-file ((variable-name file-name mode &rest key-args)
+                                &body body)
+  `(let ((,variable-name (open ,file-name ,mode ,@key-args)))
+     (unwind-protect (progn ,@body)
+     (close ,variable-name))))

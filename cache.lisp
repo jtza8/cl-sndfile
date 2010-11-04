@@ -43,16 +43,16 @@
   (assert (within-bounds-p cache address) () 
           'cache-index-error :message message))
 
-(defmethod end-of-cache-p ((cache cache))
+(defmethod out-of-cache-p ((cache cache))
   (null-pointer-p (slot-value cache 'iterator)))
 
-(defmethod assert-not-end-of-cache ((cache cache) &optional
+(defmethod assert-not-out-of-cache ((cache cache) &optional
                                     (message "past end of the cache"))
-  (assert (not (end-of-cache-p cache)) ()
+  (assert (not (out-of-cache-p cache)) ()
           'cache-index-error :message message))
 
 (defmethod iterator-value ((cache cache))
-  (assert-not-end-of-cache cache)
+  (assert-not-out-of-cache cache)
   (with-slots (iterator item-type) cache
     (mem-ref iterator item-type)))
 
@@ -62,11 +62,12 @@
 
 (defmethod offset-iterator ((cache cache) item-delta)
   (with-slots (iterator start-address item-size) cache
-    (when (end-of-cache-p cache)
+    (when (out-of-cache-p cache)
       (setf iterator start-address))
-    (assert-within-bounds cache (+ (pointer-address iterator)
-                                   (* item-delta item-size)))
-    (incf-pointer iterator (* item-delta item-size))))
+    (if (within-bounds-p cache (+ (pointer-address iterator)
+                                  (* item-delta item-size)))
+        (incf-pointer iterator (* item-delta item-size))
+        (setf iterator (null-pointer)))))
 
 (defmethod move-iterator ((cache cache) item-delta)
   (with-slots (start-address iterator item-size) cache
@@ -84,11 +85,15 @@
     (pointer-eq iterator start-address)))
 
 (defmethod read-entry ((cache cache))
-  (assert-not-end-of-cache cache)
+  (assert-not-out-of-cache cache)
   (let ((result (iterator-value cache)))
-    (if (iterator-at-end-p cache)
-        (setf (slot-value cache 'iterator) (null-pointer))
-        (offset-iterator cache 1))
+    (offset-iterator cache 1)
+    result))
+
+(defmethod write-entry ((cache cache) entry)
+  (assert-not-out-of-cache cache)
+  (let ((result (setf (iterator-value cache) entry)))
+    (offset-iterator cache 1)
     result))
 
 (defmacro with-cache ((variable &rest initargs) &body body)

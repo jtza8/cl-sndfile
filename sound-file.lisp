@@ -89,7 +89,7 @@
 (defmethod update-read-cache ((sound-file sound-file))
   (with-slots (file read-cache read-cache-size channels) sound-file
     (when (or (null read-cache)
-              (end-of-cache-p read-cache))
+              (out-of-cache-p read-cache))
       (unless (null read-cache) (free read-cache))
       (setf read-cache
             (make-instance 'cache 

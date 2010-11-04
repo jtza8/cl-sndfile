@@ -9,6 +9,8 @@
   ((frames :initform 0
            :initarg :frames
            :reader frames)
+   (frame-index :initform 0
+                :reader frame-index)
    (sample-rate :initform 0
                 :initarg :sample-rate
                 :reader sample-rate)
@@ -26,6 +28,9 @@
              :reader sections)
    (file :initform nil
          :initarg :file)
+   (file-mode :initform (error "no file mode specified")
+              :initarg :file-mode
+              :reader file-mode)
    (read-cache :initform nil
                :reader read-cache)
    (read-cache-size :initarg :read-cache-size
@@ -69,19 +74,25 @@
                   file-format (format-to-labels (i 'format))
                   seekable (i 'seekable)))
           (make-instance 'sound-file
-                         :file file :frames frames
-                         :sample-rate sample-rate
+                         :file file :file-mode mode
+                         :frames frames :sample-rate sample-rate
                          :channels channels :file-format file-format
                          :sections sections :seekable seekable
                          :read-cache-size read-cache-size
                          :write-cache-size write-cache-size))))))
+
+(defmethod initialize-instance :after ((sound-file sound-file) &key)
+  (with-slots ((frames frames-left
+  (setf 
 
 (defmethod close ((sound-file sound-file))
   (macrolet ((clear-cache (cache)
                `(unless (null ,cache)
                   (free ,cache)
                   (setf ,cache nil))))
-    (with-slots (file read-cache write-cache) sound-file
+    (with-slots (file file-mode read-cache write-cache) sound-file
+      (unless (or (eq file-mode :read) (null write-cache))
+        (flush sound-file))
       (clear-cache read-cache)
       (clear-cache write-cache)
       (sf_close (slot-value sound-file 'file)))))
@@ -105,6 +116,36 @@
   (with-slots (read-cache channels) sound-file
     (apply #'values (loop for i from 1 upto channels
                           collect (read-entry read-cache)))))
+
+(defmethod flush ((sound-file sound-file))
+  (with-slots (file frames frame-index write-cache write-cache-size) sound-file
+    (let ((frame-write-count (min write-cache-size (- frames frame-index))))
+      (unless (null write-cache)
+        (sf_write_double file (start-address write-cache) frame-write-count)
+        (incf frame-index frame-write-count)
+        frame-write-count))))
+
+(defmethod update-write-cache ((sound-file sound-file))
+  (with-slots (file frames frame-index write-cache write-cache-size channels) 
+      sound-file
+    (when (or (null write-cache)
+              (out-of-cache-p write-cache))
+      (unless (null write-cache) (flush sound-file))
+      (setf write-cache
+            (make-instance 'cache
+                           :item-type :double
+                           :total-items (* (min write-cache-size
+                                                (- frames frame-index))
+                                           channels))))))
+        
+
+(defmethod write-frame ((sound-file sound-file) &rest samples)
+  (update-write-cache sound-file)
+  (with-slots (write-cache channels) sound-file
+    (assert (= (length samples) channels) ()
+            "number of channels not equal to samples")
+    (loop for sample in samples do (write-entry write-cache sample))
+    samples))
 
 (defmacro with-open-sound-file ((variable-name file-name mode &rest key-args)
                                 &body body)

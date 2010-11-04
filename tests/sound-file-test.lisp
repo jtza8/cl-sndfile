@@ -37,3 +37,16 @@
     (multiple-value-bind (left right) (read-frame file)
       (assert-equal 0.0d0 left)
       (assert-equal -6.103515625d-5 right))))
+
+(def-test-method test-write-frame ((test sound-file-test))
+  (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
+                         :write :file-format '(:wav . :pcm-16) :channels 1
+                         :sample-rate 44100 :frames 10 :sections 1)
+    (loop for i from 0.1d0 upto 1.0d0 by 0.1d0 do (write-frame file i)))
+  (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
+                         :read)
+    (loop for i from 0.1d0 upto 1.0d0 by 0.1d0
+          do (let* ((sample (read-frame file))
+                    (delta (abs (- i sample))))
+               (assert-true (< delta 0.001)
+                            (format nil "expecting ~a got ~a" i sample))))))

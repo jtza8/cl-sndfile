@@ -29,12 +29,13 @@
    (read-cache :initform nil
                :reader read-cache)
    (read-cache-size :initarg :read-cache-size
-                     :initform 1024
-                     :reader read-cache-size)
+                    :initform 1024
+                    :reader read-cache-size)
    (write-cache :initform nil
-                 :reader write-cache)
-   (write-cache-count :initform 1024
-                       :reader write-cache-count)))
+                :reader write-cache)
+   (write-cache-size :initarg :write-cache-size
+                     :initform 1024
+                     :reader write-cache-size)))
 
 (defun assert-no-error (file)
   (assert (= (sf_error file) SF_ERR_NO_ERROR) ()
@@ -43,7 +44,8 @@
 (defun open (file-name mode &key
              (frames 0) (sample-rate 0) (channels 0)
              (file-format '(:undefined . :undefined))
-             (seekable nil) (sections 1))
+             (seekable nil) (sections 1)
+             (read-cache-size 1024) (write-cache-size 1024))
   (let ((c-mode (ecase mode
                   (:read SFM_READ)
                   (:write SFM_WRITE)
@@ -70,7 +72,9 @@
                          :file file :frames frames
                          :sample-rate sample-rate
                          :channels channels :file-format file-format
-                         :sections sections :seekable seekable))))))
+                         :sections sections :seekable seekable
+                         :read-cache-size read-cache-size
+                         :write-cache-size write-cache-size))))))
 
 (defmethod close ((sound-file sound-file))
   (macrolet ((clear-cache (cache)
@@ -86,21 +90,21 @@
   (with-slots (file read-cache read-cache-size channels) sound-file
     (when (or (null read-cache)
               (end-of-cache-p read-cache))
-      (unless (null read-cache)
-        (free read-cache))
+      (unless (null read-cache) (free read-cache))
       (setf read-cache
             (make-instance 'cache 
                            :item-type :double
                            :total-items (* read-cache-size channels)))
-      (let ((frame-count (sf_readf_double file 
-                                          (start-address read-cache)
+      (let ((frame-count (sf_readf_double file (start-address read-cache)
                                           read-cache-size)))
         (assert-no-error file)
         frame-count))))
 
 (defmethod read-frame ((sound-file sound-file))
   (update-read-cache sound-file)
-  (read-iterator (slot-value sound-file 'read-cache)))
+  (with-slots (read-cache channels) sound-file
+    (apply #'values (loop for i from 1 upto channels
+                          collect (read-entry read-cache)))))
 
 (defmacro with-open-sound-file ((variable-name file-name mode &rest key-args)
                                 &body body)

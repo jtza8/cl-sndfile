@@ -28,9 +28,11 @@
                                    (* item-size (1- total-items))))))
 
 (defmethod free ((cache cache))
-  (with-slots (start-address) cache
+  (with-slots (start-address end-address iterator) cache
     (foreign-free start-address)
-    (setf start-address (null-pointer))))
+    (setf start-address (null-pointer)
+          end-address (null-pointer)
+          iterator (null-pointer))))
 
 (defmethod within-bounds-p ((cache cache) address)
   (with-slots (start-address end-address) cache
@@ -81,7 +83,7 @@
   (with-slots (iterator start-address) cache
     (pointer-eq iterator start-address)))
 
-(defmethod read-iterator ((cache cache))
+(defmethod read-entry ((cache cache))
   (assert-not-end-of-cache cache)
   (let ((result (iterator-value cache)))
     (if (iterator-at-end-p cache)

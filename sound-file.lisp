@@ -81,21 +81,24 @@
                          :read-cache-size read-cache-size
                          :write-cache-size write-cache-size))))))
 
-(defmethod initialize-instance :after ((sound-file sound-file) &key)
-  (with-slots ((frames frames-left
-  (setf 
-
 (defmethod close ((sound-file sound-file))
-  (macrolet ((clear-cache (cache)
-               `(unless (null ,cache)
-                  (free ,cache)
-                  (setf ,cache nil))))
-    (with-slots (file file-mode read-cache write-cache) sound-file
-      (unless (or (eq file-mode :read) (null write-cache))
-        (flush sound-file))
-      (clear-cache read-cache)
-      (clear-cache write-cache)
-      (sf_close (slot-value sound-file 'file)))))
+  (with-slots (file) sound-file
+    (clear-read-cache sound-file)
+    (clear-write-cache sound-file)
+    (sf_close file)))
+
+(defmethod clear-read-cache ((sound-file sound-file))
+  (with-slots (read-cache) sound-file
+    (unless (null read-cache)
+      (free read-cache))
+    (setf read-cache nil)))
+
+(defmethod clear-write-cache ((sound-file sound-file))
+  (with-slots (write-cache) sound-file
+    (unless (null write-cache)
+      (flush sound-file)
+      (free write-cache))
+    (setf write-cache nil)))
 
 (defmethod update-read-cache ((sound-file sound-file))
   (with-slots (file read-cache read-cache-size channels) sound-file
@@ -138,14 +141,24 @@
                                                 (- frames frame-index))
                                            channels))))))
         
-
 (defmethod write-frame ((sound-file sound-file) &rest samples)
   (update-write-cache sound-file)
   (with-slots (write-cache channels) sound-file
     (assert (= (length samples) channels) ()
-            "number of channels not equal to samples")
+            "number of channels not equal to number of samples")
     (loop for sample in samples do (write-entry write-cache sample))
     samples))
+
+(defmethod seek-frame ((sound-file sound-file) frame-number &optional 
+                       (position :start))
+  (with-slots (file read-cache write-cache) sound-file
+    (sf_seek file frame-number (ecase position
+                                 (:start SEEK_SET)
+                                 (:current SEEK_CUR)
+                                 (:end SEEK_END)))
+    (assert-no-error file)
+    (clear-read-cache sound-file)
+    (clear-write-cache sound-file)))
 
 (defmacro with-open-sound-file ((variable-name file-name mode &rest key-args)
                                 &body body)

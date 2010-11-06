@@ -1,4 +1,4 @@
-(in-package :sndfile)
+(in-package #:sndfile)
 
 (defclass sound-file-test (test-case)
   ())
@@ -40,13 +40,27 @@
 
 (def-test-method test-write-frame ((test sound-file-test))
   (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
-                         :write :file-format '(:wav . :pcm-16) :channels 1
+                         :write :file-format '(:wav . :double) :channels 1
                          :sample-rate 44100 :frames 10 :sections 1)
     (loop for i from 0.1d0 upto 1.0d0 by 0.1d0 do (write-frame file i)))
   (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
                          :read)
     (loop for i from 0.1d0 upto 1.0d0 by 0.1d0
-          do (let* ((sample (read-frame file))
-                    (delta (abs (- i sample))))
-               (assert-true (< delta 0.001)
-                            (format nil "expecting ~a got ~a" i sample))))))
+          do (assert-equal i (read-frame file)))))
+
+(def-test-method test-indepth ((test sound-file-test))
+  (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
+                         :write :file-format '(:wav . :double) :channels 2
+                         :sample-rate 44100 :frames 10 :sections 1)
+    (loop for i from 0.1d0 upto 1.0d0 by 0.1d0
+          do (write-frame file i (- 1.0d0 i))))
+  (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
+                         :read)
+    (loop for i from 0.1d0 upto 0.4d0 by 0.1d0
+          do (multiple-value-bind (left right) (read-frame file)
+               (assert-equal i left)
+               (assert-equal (- 1 i) right)))
+    (seek-frame file 1)
+    (multiple-value-bind (left right) (read-frame file)
+      (assert-equal 0.2d0 left)
+      (assert-equal 0.8d0 right))))

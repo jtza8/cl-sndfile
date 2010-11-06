@@ -1,6 +1,10 @@
 (defpackage #:sndfile-cffi
   (:use #:cl #:cffi)
   (:export
+   ; unistd.h
+   #:SEEK_SET
+   #:SEEK_CUR
+   #:SEEK_END
    ; Formats Enum
    #:SF_FORMAT_WAV
    #:SF_FORMAT_AIFF

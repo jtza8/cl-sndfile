@@ -3,7 +3,9 @@
 (define-condition sound-file-error (error)
   ((message :initarg :message
             :initform ""
-            :reader message)))
+            :reader message))
+  (:report (lambda (condition stream)
+             (format stream "SOUND-FILE-ERROR: ~a" (message condition)))))
 
 (defclass sound-file ()
   ((frames :initform 0
@@ -101,7 +103,7 @@
     (setf write-cache nil)))
 
 (defmethod update-read-cache ((sound-file sound-file))
-  (with-slots (file read-cache read-cache-size channels) sound-file
+  (with-slots (file read-cache read-cache-size channels frame-index) sound-file
     (when (or (null read-cache)
               (out-of-cache-p read-cache))
       (unless (null read-cache) (free read-cache))
@@ -112,6 +114,7 @@
       (let ((frame-count (sf_readf_double file (start-address read-cache)
                                           read-cache-size)))
         (assert-no-error file)
+        (incf frame-index frame-count)
         frame-count))))
 
 (defmethod read-frame ((sound-file sound-file))
@@ -149,16 +152,21 @@
     (loop for sample in samples do (write-entry write-cache sample))
     samples))
 
-(defmethod seek-frame ((sound-file sound-file) frame-number &optional 
-                       (position :start))
-  (with-slots (file read-cache write-cache) sound-file
-    (sf_seek file frame-number (ecase position
-                                 (:start SEEK_SET)
-                                 (:current SEEK_CUR)
-                                 (:end SEEK_END)))
+(defmethod seek-frame ((sound-file sound-file) frame-delta
+                       &optional (position :start))
+  (with-slots (file read-cache write-cache frame-index frames channels)
+      sound-file
+    (sf_seek file frame-delta (ecase position
+                                (:start SEEK_SET)
+                                (:current SEEK_CUR)
+                                (:end SEEK_END)))
     (assert-no-error file)
     (clear-read-cache sound-file)
-    (clear-write-cache sound-file)))
+    (clear-write-cache sound-file)
+    (ecase position
+      (:start (setf frame-index frame-delta))
+      (:current (incf frame-index frame-delta))
+      (:end (setf frame-index (+ frames frame-delta))))))
 
 (defmacro with-open-sound-file ((variable-name file-name mode &rest key-args)
                                 &body body)

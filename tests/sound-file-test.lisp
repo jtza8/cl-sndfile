@@ -48,7 +48,7 @@
     (loop for i from 0.1d0 upto 1.0d0 by 0.1d0
           do (assert-equal i (read-frame file)))))
 
-(def-test-method test-indepth ((test sound-file-test))
+(def-test-method test-seek ((test sound-file-test))
   (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
                          :write :file-format '(:wav . :double) :channels 2
                          :sample-rate 44100 :frames 10 :sections 1)
@@ -63,4 +63,18 @@
     (seek-frame file 1)
     (multiple-value-bind (left right) (read-frame file)
       (assert-equal 0.2d0 left)
-      (assert-equal 0.8d0 right))))
+      (assert-equal 0.8d0 right))
+    (seek-frame file -1 :end)
+    (multiple-value-bind (left right) (read-frame file)
+      (assert-equal 0.8d0 left)
+      (assert-equal 0.2d0 right))))
+
+
+(def-test-method test-frame-index ((test sound-file-test))
+  (with-open-sound-file (file (merge-pathnames "test.wav" *test-sounds-path*)
+                         :read)
+    (assert-equal 0 (frame-index file))
+    (read-frame file)
+    (assert-equal 1024 (frame-index file))
+    (read-frame file)
+    (assert-equal 1024 (frame-index file))))

@@ -282,4 +282,30 @@
   (:nicknames #:sf)
   (:shadow #:open #:close)
   (:export
-   #:open))
+   #:sound-file-error
+   #:sound-file
+   #:open
+   #:close
+   #:clear-read-cache
+   #:clear-write-cache
+   #:update-read-cache
+   #:read-frame
+   #:flush
+   #:update-write-cache
+   #:write-frame
+   #:seek-frame
+   #:with-open-sound-file
+   #:with-read-frame
+   #:cache-index-error
+   #:cache
+   #:free
+   #:within-bounds-p
+   #:out-of-cache-p
+   #:iterator-value
+   #:offset-iterator
+   #:move-iterator
+   #:iterator-at-end-p
+   #:iterator-at-start-p
+   #:read-entry
+   #:write-entry
+   #:with-cache))

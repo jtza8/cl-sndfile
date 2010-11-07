@@ -127,7 +127,7 @@
   (with-slots (file frames frame-index write-cache write-cache-size channels)
       sound-file
     (let ((frame-write-count (min write-cache-size 
-                                  (rem frame-index write-cache-size))))
+                                  (/ (total-items write-cache) channels))))
       (unless (null write-cache)
         (sf_write_double file (start-address write-cache)
                          (* frame-write-count channels))
@@ -178,3 +178,7 @@
   `(let ((,variable-name (open ,file-name ,mode ,@key-args)))
      (unwind-protect (progn ,@body)
      (close ,variable-name))))
+
+(defmacro with-read-frame ((file &rest channels) &body body)
+  `(multiple-value-bind (,@channels) (read-frame ,file)
+     ,@body))

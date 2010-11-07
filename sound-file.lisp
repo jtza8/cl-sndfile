@@ -103,7 +103,7 @@
     (setf write-cache nil)))
 
 (defmethod update-read-cache ((sound-file sound-file))
-  (with-slots (file read-cache read-cache-size channels frame-index) sound-file
+  (with-slots (file read-cache read-cache-size channels) sound-file
     (when (or (null read-cache)
               (out-of-cache-p read-cache))
       (unless (null read-cache) (free read-cache))
@@ -114,21 +114,23 @@
       (let ((frame-count (sf_readf_double file (start-address read-cache)
                                           read-cache-size)))
         (assert-no-error file)
-        (incf frame-index frame-count)
         frame-count))))
 
 (defmethod read-frame ((sound-file sound-file))
   (update-read-cache sound-file)
-  (with-slots (read-cache channels) sound-file
+  (with-slots (read-cache channels frame-index) sound-file
+    (incf frame-index)
     (apply #'values (loop for i from 1 upto channels
                           collect (read-entry read-cache)))))
 
 (defmethod flush ((sound-file sound-file))
-  (with-slots (file frames frame-index write-cache write-cache-size) sound-file
-    (let ((frame-write-count (min write-cache-size (- frames frame-index))))
+  (with-slots (file frames frame-index write-cache write-cache-size channels)
+      sound-file
+    (let ((frame-write-count (min write-cache-size 
+                                  (rem frame-index write-cache-size))))
       (unless (null write-cache)
-        (sf_write_double file (start-address write-cache) frame-write-count)
-        (incf frame-index frame-write-count)
+        (sf_write_double file (start-address write-cache)
+                         (* frame-write-count channels))
         frame-write-count))))
 
 (defmethod update-write-cache ((sound-file sound-file))
@@ -146,20 +148,23 @@
         
 (defmethod write-frame ((sound-file sound-file) &rest samples)
   (update-write-cache sound-file)
-  (with-slots (write-cache channels) sound-file
+  (with-slots (write-cache channels frame-index) sound-file
     (assert (= (length samples) channels) ()
             "number of channels not equal to number of samples")
     (loop for sample in samples do (write-entry write-cache sample))
+    (incf frame-index)
     samples))
 
 (defmethod seek-frame ((sound-file sound-file) frame-delta
                        &optional (position :start))
   (with-slots (file read-cache write-cache frame-index frames channels)
       sound-file
-    (sf_seek file frame-delta (ecase position
-                                (:start SEEK_SET)
-                                (:current SEEK_CUR)
-                                (:end SEEK_END)))
+    (sf_seek file (if (eq position :current)
+                      (+ frame-index frame-delta)
+                      frame-delta)
+             (ecase position
+               ((:start :current) SEEK_SET)
+               (:end SEEK_END)))
     (assert-no-error file)
     (clear-read-cache sound-file)
     (clear-write-cache sound-file)

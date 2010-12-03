@@ -30,12 +30,12 @@
                          :read)
     (with-slots (read-cache) file
       (assert-true (null read-cache) "non-nil read-cache")
-      (assert-equal (read-frame file) -0.096954345703125d0)
-      (assert-equal (read-frame file) 0.069427490234375d0)))
+      (assert-equal (car (read-frame file)) -0.096954345703125d0)
+      (assert-equal (car (read-frame file)) 0.069427490234375d0)))
   (with-open-sound-file (file (merge-pathnames "stereo.wav" *test-sounds-path*)
                          :read)
     (assert-equal 44100 (frames file))
-    (multiple-value-bind (left right) (read-frame file)
+    (destructuring-bind (left right) (read-frame file)
       (assert-equal 0.0d0 left)
       (assert-equal -6.103515625d-5 right))))
 
@@ -48,7 +48,7 @@
                          :read)
     (assert-equal 10 (frames file))
     (loop for i from 0.1d0 upto 1.0d0 by 0.1d0
-          do (assert-equal i (read-frame file)))))
+          do (assert-equal i (car (read-frame file))))))
 
 (def-test-method test-stereo ((test sound-file-test))
   (with-open-sound-file (file (merge-pathnames "output.wav" *test-sounds-path*)
@@ -64,19 +64,19 @@
     (assert-equal '(:wav . :double) (file-format file))
     (assert-equal 44100 (sample-rate file))
     (loop for i from 0.1d0 upto 0.4d0 by 0.1d0
-          do (multiple-value-bind (left right) (read-frame file)
+          do (destructuring-bind (left right) (read-frame file)
                (assert-equal i left)
                (assert-equal (- 1 i) right)))
     (seek-frame file 1)
-    (multiple-value-bind (left right) (read-frame file)
+    (destructuring-bind (left right) (read-frame file)
       (assert-equal 0.2d0 left)
       (assert-equal 0.8d0 right))
     (seek-frame file 1 :current)
-     (multiple-value-bind (left right) (read-frame file)
+     (destructuring-bind (left right) (read-frame file)
        (assert-equal 0.4d0 left)
        (assert-equal 0.6d0 right))
     (seek-frame file -2 :end)
-    (multiple-value-bind (left right) (read-frame file)
+    (destructuring-bind (left right) (read-frame file)
       (assert-true (< (- 0.9d0 left) 0.001))
       (assert-true (< (- 0.1d0 right) 0.001)))))
 

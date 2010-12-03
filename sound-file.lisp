@@ -120,8 +120,8 @@
   (update-read-cache sound-file)
   (with-slots (read-cache channels frame-index) sound-file
     (incf frame-index)
-    (apply #'values (loop for i from 1 upto channels
-                          collect (read-entry read-cache)))))
+    (loop for i from 1 upto channels
+       collect (read-entry read-cache))))
 
 (defmethod flush ((sound-file sound-file))
   (with-slots (file frames frame-index write-cache write-cache-size channels)
@@ -178,7 +178,3 @@
   `(let ((,variable-name (open ,file-name ,mode ,@key-args)))
      (unwind-protect (progn ,@body)
      (close ,variable-name))))
-
-(defmacro with-read-frame ((file &rest channels) &body body)
-  `(multiple-value-bind (,@channels) (read-frame ,file)
-     ,@body))
